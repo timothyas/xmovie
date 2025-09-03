@@ -101,6 +101,7 @@ def _check_ffmpeg_version():
 
 
 def _execute_command(command, verbose=False, error=True):
+    print("Running ffmpeg command:\n", command)
     p = Popen(command, stdout=PIPE, stderr=STDOUT, shell=True)
 
     if verbose:
@@ -163,18 +164,17 @@ def convert_gif(
     verbose=False,
     remove_movie=True,
     gif_framerate=5,
+    gif_scale=["trunc(iw/2)", "trunc(ih/2)"],
 ):
     if gif_palette:
-        palette_filter = '-filter_complex "[0:v] split [a][b];[a] palettegen [p];[b][p] paletteuse"'
+        palette_filter = f'-filter_complex "[0:v] fps={gif_framerate},scale={gif_scale[0]}:{gif_scale[-1]},split [a][b];[a] palettegen [p];[b][p] paletteuse"'
     else:
         palette_filter = ""
 
-    command = "ffmpeg -y -i %s %s -r %i -s %ix%i %s" % (
+    command = "ffmpeg -y -i %s %s -r %i %s" % (
         mpath,
         palette_filter,
         gif_framerate,
-        resolution[0],
-        resolution[1],
         gpath,
     )
     p = _check_ffmpeg_execute(command, verbose=verbose)
@@ -439,6 +439,7 @@ class Movie:
         gif_palette=False,
         gif_resolution_factor=0.5,
         gif_framerate=10,
+        gif_scale=["trunc(iw/2)", "trunc(ih/2)"],
     ):
         """Save out animation from Movie object.
 
@@ -548,4 +549,5 @@ class Movie:
                 verbose=verbose,
                 remove_movie=remove_movie,
                 gif_framerate=gif_framerate,
+                gif_scale=gif_scale,
             )
