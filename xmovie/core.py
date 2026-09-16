@@ -1,6 +1,4 @@
-import matplotlib as mpl
-
-mpl.use("Agg")
+import contextlib
 import gc
 import glob
 import os
@@ -9,10 +7,28 @@ import sys
 import warnings
 from subprocess import PIPE, STDOUT, Popen
 
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import xarray as xr
 
 from .presets import basic
+
+
+@contextlib.contextmanager
+def headless():
+    """Render frames without a GUI, leaving the caller's backend as it was.
+
+    Frames are written to disk, so a GUI backend is at best unnecessary and at worst absent.
+    Switched here rather than set with ``mpl.use`` at import: importing xmovie used to take over
+    the backend, which overrides a notebook's inline backend and leaves `Movie.preview` with
+    nothing to display it on.
+    """
+    previous = mpl.get_backend()
+    plt.switch_backend("Agg")
+    try:
+        yield
+    finally:
+        plt.switch_backend(previous)
 
 try:
     from tqdm.auto import tqdm
@@ -368,9 +384,12 @@ class Movie:
         elif ~tqdm_avail and progress:
             warnings.warn("Cant show progess bar at this point. Install tqdm")
 
-        for timestep in frame_range:
-            fig, ax, pp = self.render_single_frame(timestep)
-            save_single_frame(fig, timestep, odir=odir, frame_pattern=self.frame_pattern, dpi=self.dpi)
+        with headless():
+            for timestep in frame_range:
+                fig, ax, pp = self.render_single_frame(timestep)
+                save_single_frame(
+                    fig, timestep, odir=odir, frame_pattern=self.frame_pattern, dpi=self.dpi
+                )
 
     def save_frames_parallel(self, odir, parallel_compute_kwargs=dict()):
         """
@@ -412,8 +431,13 @@ class Movie:
                 abs(total_time - time_of_chunk[0]).argmin().item()
             )  # get index of chunk in framedim
 
-            fig, ax, pp = self.render_single_frame(timestep)
-            save_single_frame(fig, timestep, odir=odir, frame_pattern=self.frame_pattern, dpi=self.dpi)
+            # Inside the worker rather than around the compute below, so this holds for a process
+            # or distributed scheduler too, where the main process's backend does not apply.
+            with headless():
+                fig, ax, pp = self.render_single_frame(timestep)
+                save_single_frame(
+                    fig, timestep, odir=odir, frame_pattern=self.frame_pattern, dpi=self.dpi
+                )
 
             return time_of_chunk
 
