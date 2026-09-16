@@ -45,10 +45,6 @@ except Exception:
 # import dask.bag as db
 import dask.array as dsa
 
-# is it a good idea to set these here?
-# Needs to be dependent on dpi and videosize
-plt.rcParams.update({"font.size": 14})
-
 
 # Data treatment
 def _parse_plot_defaults(da, kwargs):
